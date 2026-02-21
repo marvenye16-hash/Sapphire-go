@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>For You</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #D4AF37;
+            --text: #F9F6F0;
+        }
+
+        /* iOS Viewport Optimization */
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; 
+            min-height: 100vh;
+            min-height: -webkit-fill-available; /* Fixes Safari address bar glitch */
+            background-color: #050B14;
+            color: var(--text);
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            background-attachment: fixed;
+        }
+
+        /* Scroll Lock Class */
+        body.locked {
+            overflow: hidden;
+        }
+
+        /* The Initialization Gate */
+        #gatekeeper {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #02060A; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 2s ease-in-out, visibility 2s;
+        }
+
+        .gate-btn {
+            background: transparent; border: 1px solid rgba(212, 175, 55, 0.3);
+            color: var(--gold); padding: 15px 40px; font-family: 'Montserrat', sans-serif;
+            letter-spacing: 4px; text-transform: uppercase; font-size: 0.9rem;
+            cursor: pointer; border-radius: 50px; transition: all 0.5s ease;
+            -webkit-tap-highlight-color: transparent; /* Removes iOS tap flash */
+        }
+
+        .gate-btn:hover, .gate-btn:active {
+            background: rgba(212, 175, 55, 0.1); border-color: var(--gold);
+        }
+
+        /* The 15-Second Interim Prompt */
+        #wait-prompt {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9000; display: none; flex-direction: column; 
+            justify-content: center; align-items: center; text-align: center;
+            opacity: 0; transition: opacity 2s ease-in-out;
+        }
+
+        .pulse-text {
+            font-family: 'Playfair Display', serif; font-size: 1.2rem; font-style: italic;
+            color: var(--gold); letter-spacing: 2px;
+            animation: pulse 3s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        /* Background Aurora Engine */
+        #aurora-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1; filter: blur(60px); opacity: 0.8; pointer-events: none;
+        }
+
+        /* Content Architecture */
+        #main-content {
+            position: relative; z-index: 10;
+            display: none; padding-bottom: 50px;
+        }
+
+        .section {
+            min-height: 100vh; display: flex; justify-content: center; align-items: center;
+            padding: 0 20px; perspective: 1000px;
+        }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            max-width: 650px; width: 100%;
+            background: rgba(10, 25, 47, 0.2);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px; padding: 40px 25px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+            text-align: center; font-size: 1.1rem; font-weight: 300; line-height: 1.9;
+            
+            opacity: 0; transform: translateY(40px) scale(0.98);
+            transition: all 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .glass-panel.visible {
+            opacity: 1; transform: translateY(0) scale(1);
+        }
+
+        .serif-accent {
+            font-family: 'Playfair Display', serif; font-size: 1.4rem; font-style: italic;
+            color: var(--gold); margin: 20px 0; display: block;
+        }
+
+        /* Advanced Button Group */
+        .action-grid {
+            margin-top: 40px; display: flex; flex-direction: column; gap: 15px; 
+            justify-content: center; position: relative; width: 100%;
+        }
+
+        .action-btn {
+            font-family: 'Montserrat', sans-serif; text-transform: uppercase; letter-spacing: 3px;
+            padding: 15px 45px; cursor: pointer; border-radius: 4px; transition: 0.4s; font-size: 0.9rem;
+            width: 100%; max-width: 250px; margin: 0 auto;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #btn-yes {
+            background: transparent; border: 1px solid var(--gold); color: var(--gold);
+        }
+
+        #btn-yes:active { background: var(--gold); color: #050B14; }
+
+        #btn-no {
+            background: transparent; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.4);
+        }
+
+        /* Final Success Screen */
+        #success-overlay {
+            position: fixed; inset: 0; background: #050B14; z-index: 999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: opacity 2s ease;
+        }
+
+        #success-overlay.active { opacity: 1; visibility: visible; }
+        .success-title { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: var(--gold); margin-bottom: 20px;}
+    </style>
+</head>
+<body class="locked"> <audio id="bg-audio" loop playsinline>
+        <source src="background.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="gatekeeper">
+        <button class="gate-btn" id="enter-btn">Initialize</button>
+    </div>
+
+    <div id="wait-prompt">
+        <div class="pulse-text">Please ensure your volume is up.</div>
+        <div style="font-size: 0.85rem; opacity: 0.6; margin-top: 15px; letter-spacing: 1px;">Allow a moment...</div>
+    </div>
+
+    <canvas id="aurora-canvas"></canvas>
+
+    <div id="main-content">
+        
+        <div class="section">
+            <div class="glass-panel">
+                <p>You’ve always enjoyed the irony of teasing me that I was the first to fall. For a long time, I held my ground, convinced I was the one navigating the distance, keeping the maps, and holding the keys.</p>
+                <p>But looking at you now, I realize how quietly you moved. You didn’t storm the gates or demand entry; you simply became the only person I wanted to find behind them. You snuck past every defense I spent years perfecting, not with a loud display, but with a presence so steady that I realized the walls weren't protecting me anymore—they were just in the way.</p>
+                <p>In the end, you didn't just win an argument; you gave me a place where I finally felt it was safe to let my guard down.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="glass-panel">
+                <p>I’ve spent a long time observing the world through a lens of logic and structure, but you are a phenomenon I didn’t see coming.</p>
+                <p>It isn’t just the way you carry yourself; it’s the substance beneath the surface—<span class="serif-accent">a rare combination of intelligence and a grace that feels entirely ethereal.</span></p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="glass-panel">
+                <p>I see the way you handle the world, with a loving kindness that isn’t a weakness, but an intentional choice. There is a deep resilience in you, a quiet patience that acts as an anchor when everything else feels like noise.</p>
+                <p>It’s a rare capacity, the kind that builds more than just a life; it builds a legacy.</p>
+                <p>When I look at you, I don’t just see the person I fell for; I see a woman with the strength of a matriarch, someone who creates a sense of home and clarity simply by being in the room.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="glass-panel">
+                <span class="serif-accent" style="font-size: 1.8rem; line-height: 1.4;">My intention is to love you better every day, so that we never have to look back and say the former days were better than today.</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="glass-panel" style="border-color: rgba(212, 175, 55, 0.3);">
+                <p>I want us to be together for everything that comes next. I want you to officially be my woman.</p>
+                <span class="serif-accent">Will you walk this path with me?</span>
+                
+                <div class="action-grid">
+                    <button class="action-btn" id="btn-yes">Yes</button>
+                    <button class="action-btn" id="btn-no">No</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="success-overlay">
+        <div class="success-title">It is settled.</div>
+        <div style="font-family: 'Montserrat', sans-serif; font-weight: 300; letter-spacing: 2px;">I will see you soon.</div>
+    </div>
+
+    <script>
+        // --- 1. Audio, Gatekeeper & 15s Delay Logic ---
+        document.getElementById('enter-btn').addEventListener('click', function() {
+            const gate = document.getElementById('gatekeeper');
+            const waitPrompt = document.getElementById('wait-prompt');
+            const content = document.getElementById('main-content');
+            const audio = document.getElementById('bg-audio');
+            
+            // Audio execution (Optimized for iOS)
+            audio.volume = 0.5;
+            audio.play().catch(e => console.log("Audio play failed."));
+            
+            // Fade out gatekeeper
+            gate.style.opacity = '0';
+            
+            setTimeout(() => {
+                gate.style.display = 'none';
+                
+                // Show Wait Prompt
+                waitPrompt.style.display = 'flex';
+                setTimeout(() => { waitPrompt.style.opacity = '1'; }, 50);
+
+                // 15 Second Timer initiated
+                setTimeout(() => {
+                    // Fade out Wait Prompt
+                    waitPrompt.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        waitPrompt.style.display = 'none';
+                        
+                        // Unlock Scroll and Reveal Content
+                        document.body.classList.remove('locked');
+                        content.style.display = 'block';
+                        
+                        // Trigger first section animation
+                        setTimeout(() => {
+                            document.querySelector('.glass-panel').classList.add('visible');
+                        }, 100);
+
+                    }, 2000); // Wait for prompt to fade out before revealing text
+
+                }, 15000); // The 15-second immersion phase
+
+            }, 2000);
+        });
+
+        // --- 2. Custom Aurora Canvas Engine ---
+        const canvas = document.getElementById('aurora-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const orbs = [];
+        const colors = ['#0F2027', '#203A43', '#2C5364', '#1A2A3A', 'rgba(212, 175, 55, 0.12)'];
+        
+        for(let i = 0; i < 5; i++) {
+            orbs.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                radius: Math.random() * 300 + 150,
+                dx: (Math.random() - 0.5) * 0.4,
+                dy: (Math.random() - 0.5) * 0.4,
+                color: colors[i % colors.length]
+            });
+        }
+
+        function animateAurora() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'screen';
+            
+            orbs.forEach(orb => {
+                orb.x += orb.dx;
+                orb.y += orb.dy;
+                
+                if(orb.x < -orb.radius || orb.x > width + orb.radius) orb.dx *= -1;
+                if(orb.y < -orb.radius || orb.y > height + orb.radius) orb.dy *= -1;
+
+                const gradient = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.radius);
+                gradient.addColorStop(0, orb.color);
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            });
+            requestAnimationFrame(animateAurora);
+        }
+        animateAurora();
+
+        // --- 3. Scroll Reveal Logic ---
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.2 });
+
+        document.querySelectorAll('.glass-panel').forEach(panel => {
+            observer.observe(panel);
+        });
+
+        // --- 4. Advanced Evasive Maneuver (Touch-Optimized) ---
+        const btnNo = document.getElementById('btn-no');
+        const btnYes = document.getElementById('btn-yes');
+        const successOverlay = document.getElementById('success-overlay');
+
+        // Handles both hover (desktop) and touch (mobile)
+        function evadeButton(e) {
+            e.preventDefault();
+            this.style.position = 'fixed';
+            this.style.zIndex = '9999';
+            
+            const maxX = window.innerWidth - this.offsetWidth - 20;
+            const maxY = window.innerHeight - this.offsetHeight - 20;
+            
+            const randomX = Math.max(20, Math.floor(Math.random() * maxX));
+            const randomY = Math.max(20, Math.floor(Math.random() * maxY));
+            
+            this.style.left = randomX + 'px';
+            this.style.top = randomY + 'px';
+        }
+
+        btnNo.addEventListener('mouseover', evadeButton);
+        btnNo.addEventListener('touchstart', evadeButton);
+
+        btnYes.addEventListener('click', function() {
+            successOverlay.classList.add('active');
+            const audio = document.getElementById('bg-audio');
+            let fadeAudio = setInterval(function () {
+                if ((audio.volume != 0.0) && (audio.volume - 0.05 > 0)) {
+                    audio.volume -= 0.05;
+                } else {
+                    audio.volume = 0;
+                    audio.pause();
+                    clearInterval(fadeAudio);
+                }
+            }, 200);
+        });
+    </script>
+</body>
+</html>
